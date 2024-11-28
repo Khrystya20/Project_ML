@@ -4,7 +4,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 @click.command()
-@click.option('--dataset_folder', type=str, help='dataset folder')
+@click.option('--dataset_folder', type=str, default='dataset', help='dataset folder')
 def main(dataset_folder):
     # Visualize a few photos
     dolphin_folder = os.path.join(dataset_folder, "1_dolphin")
