@@ -123,7 +123,10 @@ def main():
     # Some test images
     image_paths = [
         "dataset/1_dolphin/SB15-1595-027.JPG",  # Dolphin #1 image
+        "dataset/1_dolphin/SB16-1603-808.JPG",  # Dolphin #1 image
+        "dataset/1_dolphin/SB21-1873-304.JPG",  # Dolphin #1 image
         "dataset/other_dolphins/SB24-2056-016.JPG",  # Other dolphin image
+        "dataset/other_dolphins/0J4A2913.JPG", # Other dolphin image
     ]
 
     # Predict for several images
