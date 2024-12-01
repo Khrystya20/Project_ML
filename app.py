@@ -3,19 +3,13 @@ from PIL import Image
 import torch
 from torchvision import transforms
 import io
+import base64
 
 from model import BinaryClassificationModel
 
-
-# Завантажуємо модель (потрібно замінити шлях на вашу модель)
-#def load_model():
-#    model = torch.load('dolphin_binary_classification.pth', map_location=torch.device('cpu'))  # Використовуємо CPU, якщо немає GPU
-#    model.eval()  # Перехід моделі в режим оцінки
-#    return model
-
 def load_model(model_path, device):
     model = BinaryClassificationModel()
-    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)
     model.eval()
     return model
@@ -27,46 +21,55 @@ model = load_model(model_path, device)
 # Ініціалізація Flask
 app = Flask(__name__)
 
-# Трансформації для зображень (перетворення в tensor, нормалізація тощо)
+# Трансформації для зображень
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         std=[0.229, 0.224, 0.225])
 ])
 
-@app.route('/')
-def home():
-    return render_template('index.html')  # Це відобразить HTML сторінку з формою завантаження
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            error = 'No file part'
+            return render_template('index.html', error=error)
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'})
+        file = request.files['file']
+        if file.filename == '':
+            error = 'No selected file'
+            return render_template('index.html', error=error)
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'})
+        # Зчитування даних файлу
+        try:
+            file_data = file.read()
+            img = Image.open(io.BytesIO(file_data)).convert("RGB")
+            img_tensor = transform(img).unsqueeze(0).to(device)
+        except Exception as e:
+            error = f"Image processing error: {str(e)}"
+            return render_template('index.html', error=error)
 
-    # Image processing
-    try:
-        img = Image.open(io.BytesIO(file.read())).convert("RGB")  # Convert to RGB
-        img = transform(img).unsqueeze(0).to(device)  # Apply transform and add batch dimension
-    except Exception as e:
-        return jsonify({'error': f"Image processing error: {str(e)}"})
+        # Прогноз
+        try:
+            with torch.no_grad():
+                outputs = model(img_tensor)
+                confidence = outputs.item()  # Припускаємо, що вихід - скаляр
+                prediction = 1 if confidence > 0.5 else 0
+        except Exception as e:
+            error = f"Prediction error: {str(e)}"
+            return render_template('index.html', error=error)
 
-    # Prediction
-    try:
-        with torch.no_grad():
-            outputs = model(img)  # Get model output
-            confidence = outputs.item()  # Assuming a single scalar output
-            prediction = 1 if confidence > 0.5 else 0  # Binary classification
-    except Exception as e:
-        return jsonify({'error': f"Prediction error: {str(e)}"})
+        # Маппінг результату
+        class_name = "Yes, this dolphin is special!" if prediction == 1 else "No, this dolphin is not special."
 
-    # Result mapping
-    class_name = "Yes, this dolphin is special!" if prediction == 1 else "No, this dolphin is not special."
-    return jsonify({'result': class_name, 'confidence': confidence})
+        # Кодування зображення в base64
+        encoded_image = base64.b64encode(file_data).decode('utf-8')
+        mime_type = file.content_type  # Наприклад, 'image/jpeg'
 
+        return render_template('index.html', result=class_name, confidence=confidence, image_data=encoded_image, mime_type=mime_type)
+    else:
+        return render_template('index.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
