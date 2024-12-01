@@ -5,6 +5,8 @@ from torchvision import transforms
 from PIL import Image
 from model import CustomDataset, split_dataset, BinaryClassificationModel
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def load_model(model_path, device):
     model = BinaryClassificationModel()
@@ -19,6 +21,14 @@ def get_transform():
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
+
+def plot_confusion_matrix(conf_matrix, class_names):
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+    plt.show()
 
 def compute_metrics(model, dataloader, device):
     model.eval()
@@ -62,6 +72,10 @@ def compute_metrics(model, dataloader, device):
 
     print("Confusion Matrix:")
     print(conf_matrix)
+
+    # Plot the confusion matrix
+    class_names = ["Not Dolphin #1", "Dolphin #1"]
+    plot_confusion_matrix(conf_matrix, class_names)
 
 def evaluate_on_test_set(model, test_loader, device):
     compute_metrics(model, test_loader, device)
